@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashCard App</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding:20px;
+            max-width: 800px;
+            margin:0 auto;
+        }
+
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding:20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .setup-container, .form-container, .flashcard-container {
+            margin-top:20px;
+        }
+
+        .inpu-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display:block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input,textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .flashcard {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0, 0.1);
+            margin-bottom: 20px;
+            height:200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-size: 18px;
+            cursor: pointer;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+            padding: 20px;
+        }
+
+        .flashcard.flipped {
+            transform: rotateY(180deg)
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .flashcard-back {
+            transform: rotateY(180deg);
+        }
+
+        .controls  {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .progress {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="setup-container" id="setup-container">
+            <div class="input-group">
+                <label for="num-cards">How many flash cards would you like to create?</label>
+                <input type="number" id="num-cards" min="1" max="50" value="5">
+            </div>
+            <button id="start-btn">Create Flashcards</button>
+        </div>
+
+        <div class="form-container hidden" id="form-container">
+            <h2>Enter your Flashcard content</h2>
+            <div id="flashcard-forms"></div>
+            <button id="save-btn">Save Flashcards</button>
+        </div>
+
+        <div class="flashcard-container hidden" id="flashcard-container">
+            <div class="progress">
+                <span id="current-card">1</span>/<span id="total-cards">5</span>
+            </div>
+            <div class="controls">
+                <button id="prev-btn">Previous</button>
+                <button id="flip-btn">Flip Card</button>
+                <button id="next-btn">Next</button>
+            </div>
+            <div id="flashcard-display">
+                <div class="controls">
+                    <button id="restart-btn">Start over</button>
+                    <button id="shuffle-btn">Shuffle Cards</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // applicatio state management
+        const state = {
+            numCards: 0,
+            currentIndex: 0,
+            flashcards: []
+        };
+
+        // DOM 
+        const setupContainer = document.getElementById('setup-container'); 
+        const formContainer = document.getElementById('form-container'); 
+        const flashcardContainer = document.getElementById('flashcard-container'); 
+        const flashcardForms = document.getElementById('flashcard-forms'); 
+        const flashcardDisplay = document.getElementById('flashcard-display'); 
+        const currentCardSpan = document.getElementById('current-card'); 
+        const totalCardsSpan = document.getElementById('total-cards');
+
+        document.getElementById('start-btn').addEventListener('click', startCreatingCards); 
+        document.getElementById('save-btn').addEventListener('click', saveFlashcards); 
+        document.getElementById('prev-btn').addEventListener('click', showPreviousCard); 
+        document.getElementById('next-btn').addEventListener('click', showNextCard); 
+        document.getElementById('flip-btn').addEventListener('click', flipCurrentCard); 
+        document.getElementById('restart-btn').addEventListener('click', restartApp); 
+        document.getElementById('shuffle-btn').addEventListener('click', shuffleCards);
+
+        function startCreatingCards() {
+            // get and validate the number of cards
+            state.numCards = parseInt(document.getElementById('num-cards').value);
+            if (isNaN(state.numCards) ||  state.numCards < 1) {
+                alert("Please enter a legit number  of flashcards");
+                return;
+            }
+
+            // generate form for each card
+            flashcardForms.innerHTML = '';
+            for(let i=0; i<state.numCards;i++) {
+                const formHtml = `
+                    <div class="flashcard-form"> 
+                        <h3>Flashcard ${i + 1}</h3> 
+                        <div class="input-group"> 
+                            <label for="question-${i}">Question:</label> 
+                            <textarea id="question-${i}" rows="3" required></textarea> 
+                        </div> 
+                        <div class="input-group"> 
+                            <label for="answer-${i}">Answer:</label> 
+                            <textarea id="answer-${i}" rows="3" required></textarea> 
+                        </div> 
+                    </div>
+                    `
+                    flashcardForms.innerHTML += formHtml;
+            }
+            // switch to form view
+            setupContainer.classList.add('hidden');
+            formContainer.classList.remove('hidden');
+        }
+
+        function saveFlashcards() { 
+            // reset the array 
+            state.flashcards = []; 
+            let isValid = true; 
+            // validate and collect data 
+            for (let i = 0; i < state.numCards; i++) { 
+                // get the question and answer, removing extra whitespace 
+                const question = document.getElementById(`question-${i}`).value.trim(); 
+                const answer = document.getElementById(`answer-${i}`).value.trim(); 
+                    // validate that both fields have content 
+                    if (!question || !answer) { 
+                        isValid = false; 
+                        alert(`Please fill in both question and answer for Flashcard ${i + 1}`); 
+                        break; 
+                    } 
+                // add valid flashcard to the array 
+                state.flashcards.push({ question, answer });
+            }  
+            // if all cards are valid, display them 
+            if (isValid) { 
+                displayFlashcards();
+                state.currentIndex = 0; 
+                formContainer.classList.add('hidden'); 
+                flashcardContainer.classList.remove('hidden'); 
+                updateCardCounter();  
+            } 
+        } 
+
+        function displayFlashcards() {
+            // exit if no cards
+            if (state.flashcards.length ===  0) return;
+            // get the current card based on the index
+            const card = state.flashcards[state.currentIndex];
+            // create the html with both front and back faces
+            flashcardDisplay.innerHTML = `
+            <div class="flashcard" id="current-flashcard">
+                <div class="flashcard-front">
+                    <p>${card.question}</p>
+                </div>
+                <div class="flashcard-back">
+                    <p>${card.answer}</p>
+                </div>
+            </div>
+            `
+        }
+
+        // event listener for flipping on click
+        document.getElementById('current-flashcard').addEventListener('click, flipCurrentCard');
+
+        function showPreviousCard() {
+            // only go back if not on the first card
+            if (state.currentIndex > 0) {
+                state.currentIndex--;
+
+                displayFlashcards();
+                updateCardCounter();
+            }
+        }
+
+        function showNextCard() {
+            // only  advance if not on last card
+            if (state.currentIndex < state.flashcards.length - 1) {
+                state.currentIndex++;
+
+                displayFlashcards();
+                updateCardCounter();
+            }
+        }
+
+        function flipCurrentCard() {
+            // get current flashcard element
+            const flashcard = document.getElementById('current-flashcard');
+            // trigger animation
+            flashcard.classList.toggle('flipped');
+        }
+
+        function updateCardCounter() {
+            // update ccurrent card #
+            currentCardSpan.textContent = state.currentIndex + 1;
+            // update count
+            totalCardsSpan.textContent = state.flashcards.length;
+        }
+
+        function restartApp() {
+            // reset to first card
+            state.currentIndex = 0;
+            // hide card screen
+            flashcardContainer.classList.add('hidden');
+            // show the setup screen
+            setupContainer.classList.remove('hidden');
+        }
+
+        function shuffleCards () { 
+            // fisher-yates shuffle 
+            for (let i = state.flashcards.length - 1; i > 0; i--) {
+                // get random index from 0 to i 
+                const j = Math.floor(Math.random() * (i + 1)); 
+                // swap elements at i and j using array
+                [state.flashcards[i], state.flashcards[j]]=[state.flashcards[j], state.flashcards[i]]
+            } 
+            // Reset to the first card 
+            state.currentIndex = 0; 
+            // Update the display 
+            displayFlashcards(); 
+            updateCardCounter(); 
+    };
+    </script>
+</body>
+</html>
